@@ -12,25 +12,18 @@ public class IKManager : MonoBehaviour
 
     public float deltaStep = 0.1f;
     public float learningRate = 5f;
-    public float allowedError = 0.001f;
+    public float allowedError = 0.01f;
 
     public int maxIterationsPerFrame = 20;
     private int iterationsPerFrame = 0;
 
-    public float regularization = 1f;
-
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+    public float regularization = 0.8f;
 
     void Reset()
     {
         joints = GetComponentsInChildren(typeof(RobotJoint))
             .Select(x => (RobotJoint)x)
-            .ToArray()
-        ;
+            .ToArray();
     }
 
     void Start()
@@ -38,19 +31,19 @@ public class IKManager : MonoBehaviour
         StartCoroutine("LossOptimization");
     }
 
-    private Vector3 ForwardKinematics(float[] angles)
+    private Vector3 ForwardKinematics(Vector3[] angles)
     {
         Quaternion rotation = transform.rotation;
         Vector3 position = joints[0].transform.position;
         for (int i = 0; i < joints.Length; ++i)
         {
-            rotation *= Quaternion.AngleAxis(angles[i], joints[i].Axis);
-            position += rotation * joints[i].Arm;
+            rotation *= Quaternion.Euler(angles[i]);
+            position += rotation * joints[i].arm;
         }
         return position;
     }
 
-    private float LossFunction(float[] angles)
+    private float LossFunction(Vector3[] angles)
     {
         Vector3 fk = ForwardKinematics(angles);
         float distanceToTarget = (follow.position - fk).magnitude;
@@ -58,9 +51,7 @@ public class IKManager : MonoBehaviour
             angles
             .Zip(
                 joints,
-                (angle, joint) => RobotJoint.GetTension(
-                    angle, joint.restAngle, joint.minAngle, joint.maxAngle
-                )
+                (angle, joint) => RobotJoint.GetTension(angle, joint)
             )
             .Sum()
         ;
@@ -69,33 +60,36 @@ public class IKManager : MonoBehaviour
         return loss;
     }
 
-    public float[] LossGradient(float[] angles)
+    public Vector3[] LossGradient(Vector3[] angles)
     {
-        float[] gradient = new float[angles.Length];
-        float[] deltaAngles = new float[angles.Length];
+        Vector3[] gradient = new Vector3[angles.Length];
+        Vector3[] deltaAngles = new Vector3[angles.Length];
         for (int i = 0; i < angles.Length; ++i)
         {
-            angles.CopyTo(deltaAngles, 0);
-            deltaAngles[i] += deltaStep;
+            for (int j = 0; j < 3; ++j)
+            {
+                angles.CopyTo(deltaAngles, 0);
+                deltaAngles[i][j] += deltaStep;
 
-            float fx = LossFunction(angles);
-            float fdx = LossFunction(deltaAngles);
+                float fx = LossFunction(angles);
+                float fdx = LossFunction(deltaAngles);
 
-            gradient[i] = (fdx - fx) / deltaStep;
+                gradient[i][j] = (fdx - fx) / deltaStep;
+            }
         }
         return gradient;
     }
 
     public IEnumerator LossOptimization()
     {
-        float[] angles = joints.Select(x => x.Angle).ToArray();
+        Vector3[] angles = joints.Select(x => x.Angles).ToArray();
         iterationsPerFrame = 0;
         while (followTarget)
         {
-            float[] gradient = LossGradient(angles);
+            Vector3[] gradient = LossGradient(angles);
             float gradientMagnitude = Mathf.Sqrt(
                 gradient
-                    .Select(x => Mathf.Pow(x, 2))
+                    .Select(x => x.sqrMagnitude)
                     .Sum()
             );
             if (gradientMagnitude < allowedError)
@@ -110,22 +104,27 @@ public class IKManager : MonoBehaviour
                     gradient,
                     (angle, gradient) => angle - learningRate * gradient
                 )
-                .Zip(
-                    joints,
-                    (angle, joint) =>
-                        Mathf.Clamp(angle, joint.minAngle, joint.maxAngle)
-                )
                 .ToArray()
             ;
-
-            for (int i = 0; i < joints.Length; ++i)
+            for (int i = 0; i < angles.Length; ++i)
             {
-                joints[i].Angle = angles[i];
+                for (int j = 0; j < 3; ++j)
+                {
+                    angles[i][j] = Mathf.Clamp(
+                        angles[i][j],
+                        joints[i].minAngles[j],
+                        joints[i].maxAngles[j]
+                    );
+                }
             }
 
             if (iterationsPerFrame == maxIterationsPerFrame)
             {
                 iterationsPerFrame = 0;
+                for (int i = 0; i < joints.Length; ++i)
+                {
+                    joints[i].Angles = angles[i];
+                }
                 yield return null;
             }
             else

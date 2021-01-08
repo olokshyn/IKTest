@@ -198,6 +198,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Arm
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 9840fabd65a4b4219a6ece03db02ca72, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 2073250311831768204, guid: 9840fabd65a4b4219a6ece03db02ca72, type: 3}
       propertyPath: m_LocalPosition.y
       value: 1.45
@@ -350,9 +354,9 @@ MonoBehaviour:
   followTarget: 1
   deltaStep: 0.1
   learningRate: 5
-  allowedError: 0.001
+  allowedError: 0.01
   maxIterationsPerFrame: 20
-  regularization: 0.2
+  regularization: 0.8
 --- !u!114 &500872059
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -365,11 +369,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d052c7ee2c6a94af1a598863e8021ef0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Axis: {x: 1, y: 0, z: 0}
-  Arm: {x: 0, y: 1.45, z: 0}
-  minAngle: -90
-  maxAngle: 90
-  restAngle: 0
+  arm: {x: 0, y: 1.45, z: 0}
+  restAngles: {x: 0, y: 0, z: 0}
+  minAngles: {x: -90, y: -90, z: -90}
+  maxAngles: {x: 90, y: 90, z: 90}
 --- !u!114 &500872060
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -382,11 +385,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d052c7ee2c6a94af1a598863e8021ef0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Axis: {x: 1, y: 0, z: 0}
-  Arm: {x: -0, y: 1.45, z: 0}
-  minAngle: -90
-  maxAngle: 90
-  restAngle: 0
+  arm: {x: -0, y: 1.45, z: 0}
+  restAngles: {x: 0, y: 0, z: 0}
+  minAngles: {x: -90, y: -90, z: -90}
+  maxAngles: {x: 90, y: 90, z: 90}
 --- !u!114 &500872061
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -399,11 +401,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d052c7ee2c6a94af1a598863e8021ef0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Axis: {x: 1, y: 0, z: 0}
-  Arm: {x: -0, y: 1.45, z: 0}
-  minAngle: -90
-  maxAngle: 90
-  restAngle: 0
+  arm: {x: -0, y: 1.45, z: 0}
+  restAngles: {x: 0, y: 0, z: 0}
+  minAngles: {x: -90, y: -90, z: -90}
+  maxAngles: {x: 90, y: 90, z: 90}
 --- !u!114 &500872062
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -416,11 +417,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d052c7ee2c6a94af1a598863e8021ef0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Axis: {x: 0, y: 1, z: 0}
-  Arm: {x: -0, y: 1.45, z: 0}
-  minAngle: -90
-  maxAngle: 90
-  restAngle: 0
+  arm: {x: -0, y: 1.45, z: 0}
+  restAngles: {x: 0, y: 0, z: 0}
+  minAngles: {x: -90, y: -90, z: -90}
+  maxAngles: {x: 90, y: 90, z: 90}
 --- !u!1 &705507993
 GameObject:
   m_ObjectHideFlags: 0

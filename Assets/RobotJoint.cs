@@ -4,33 +4,43 @@ using UnityEngine;
 
 public class RobotJoint : MonoBehaviour
 {
-    public Vector3 Axis;
-    public Vector3 Arm;
-    public float minAngle = -90;
-    public float maxAngle = 90;
-    public float restAngle = 0f;
+    public Vector3 arm;
+    public Vector3 restAngles = new Vector3(0f, 0f, 0f);
+    public Vector3 minAngles = new Vector3(-90f, -90f, -90f);
+    public Vector3 maxAngles = new Vector3(90f, 90f, 90f);
 
-    public static float GetTension(float angle, float restAngle, float minAngle, float maxAngle)
+    public static float GetTension(Vector3 angles, RobotJoint joint)
     {
-        float closestLimit =
-            Mathf.Abs(angle - minAngle) < Mathf.Abs(angle - maxAngle)
-            ? minAngle
-            : maxAngle;
-        return
-            Mathf.Abs(
-                (angle - restAngle)
-                / (restAngle - closestLimit)
-            );
+        float tension = 0;
+        for (int i = 0; i < 3; ++i)
+        {
+            float closestLimit =
+                Mathf.Abs(angles[i] - joint.minAngles[i]) < Mathf.Abs(angles[i] - joint.maxAngles[i])
+                ? joint.minAngles[i]
+                : joint.maxAngles[i];
+            tension +=
+                Mathf.Abs(
+                    (angles[i] - joint.restAngles[i])
+                    / (joint.restAngles[i] - closestLimit)
+                );
+        }
+        return tension / 3f;
     }
     
-    public float Angle
+    public Vector3 Angles
     {
-        get => Vector3.Project(transform.localEulerAngles, Axis).magnitude;
-        set => transform.localEulerAngles =
-            Mathf.Clamp(value, minAngle, maxAngle) * Axis;
+        get => transform.localEulerAngles;
+        set
+        {
+            for (int i = 0; i < 3; ++i)
+            {
+                value[i] = Mathf.Clamp(value[i], minAngles[i], maxAngles[i]);
+            }
+            transform.localEulerAngles = value;
+        }
     }
 
-    public float Tension => GetTension(Angle, restAngle, minAngle, maxAngle);
+    public float Tension => GetTension(Angles, this);
 
     void Reset()
     {
@@ -38,19 +48,12 @@ public class RobotJoint : MonoBehaviour
         if (joints.Length >= 2)
         {
             RobotJoint childJoint = joints[1];
-            Arm = childJoint.transform.localPosition;
+            arm = childJoint.transform.localPosition;
         }
-        Axis = Vector3.right;
     }
 
     void Start()
     {
-        Angle = restAngle;
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
+        Angles = restAngles;
     }
 }
