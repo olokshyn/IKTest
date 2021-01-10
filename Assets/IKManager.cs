@@ -11,8 +11,10 @@ public class IKManager : MonoBehaviour
     public bool followTarget = true;
 
     public float deltaStep = 0.1f;
-    public float learningRate = 5f;
-    public float allowedError = 0.01f;
+    public float minLearningRate = 0.1f;
+    public float maxLearningRate = 5f;
+    public float minTargetDistance = 0.03f;
+    public float maxTargetDistance = 0.1f;
 
     public int maxIterationsPerFrame = 20;
     private int iterationsPerFrame = 0;
@@ -24,6 +26,7 @@ public class IKManager : MonoBehaviour
         joints = GetComponentsInChildren(typeof(RobotJoint))
             .Select(x => (RobotJoint)x)
             .ToArray();
+        follow = GameObject.Find("Controller").transform;
     }
 
     void Start()
@@ -43,10 +46,14 @@ public class IKManager : MonoBehaviour
         return position;
     }
 
+    private float DistanceToTarget(Vector3[] angles)
+    {
+        return (follow.position - ForwardKinematics(angles)).magnitude;
+    }
+
     private float LossFunction(Vector3[] angles)
     {
-        Vector3 fk = ForwardKinematics(angles);
-        float distanceToTarget = (follow.position - fk).magnitude;
+        float distanceToTarget = DistanceToTarget(angles);
         float tension =
             angles
             .Zip(
@@ -56,7 +63,7 @@ public class IKManager : MonoBehaviour
             .Sum()
         ;
         float loss = distanceToTarget + regularization * tension;
-        Debug.Log($"loss = {loss:F3}; distance = {distanceToTarget:F3}; tension = {tension:F3}");
+        //Debug.Log($"loss = {loss:F3}; distance = {distanceToTarget:F3}; tension = {tension:F3}");
         return loss;
     }
 
@@ -86,30 +93,35 @@ public class IKManager : MonoBehaviour
         iterationsPerFrame = 0;
         while (followTarget)
         {
+            float targetDistance = DistanceToTarget(angles);
+            if (targetDistance < minTargetDistance)
+            {
+                iterationsPerFrame = 0;
+                Debug.Log($"Target reached, distance = {targetDistance:F3}");
+                yield return null;
+                continue;
+            }
+
             Vector3[] gradient = LossGradient(angles);
             float gradientMagnitude = Mathf.Sqrt(
                 gradient
                     .Select(x => x.sqrMagnitude)
                     .Sum()
             );
-            if (gradientMagnitude < allowedError)
-            {
-                iterationsPerFrame = 0;
-                yield return null;
-            }
 
-            angles =
-                angles
-                .Zip(
-                    gradient,
-                    (angle, gradient) => angle - learningRate * gradient
-                )
-                .ToArray()
-            ;
+            float learningRate = Mathf.Lerp(
+                minLearningRate,
+                maxLearningRate,
+                (targetDistance - minTargetDistance)
+                / (maxTargetDistance - minTargetDistance)
+            );
+            Debug.Log($"learningRate = {learningRate:F3}; targetDistance = {targetDistance:F3}");
+
             for (int i = 0; i < angles.Length; ++i)
             {
                 for (int j = 0; j < 3; ++j)
                 {
+                    angles[i][j] -= learningRate * gradient[i][j];
                     angles[i][j] = Mathf.Clamp(
                         angles[i][j],
                         joints[i].minAngles[j],
@@ -126,6 +138,7 @@ public class IKManager : MonoBehaviour
                     joints[i].Angles = angles[i];
                 }
                 yield return null;
+                continue;
             }
             else
             {
