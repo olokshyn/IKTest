@@ -41,7 +41,10 @@ namespace AAAGamesDivision
             }
 
             private Dictionary<string, Vector3>
-                LossGradient(Dictionary<string, IKJointAngles> angles)
+                LossGradient(
+                    Dictionary<string, IKJointAngles> angles,
+                    float[] gradientSamplingSteps
+            )
             {
                 Dictionary<string, IKJointAngles> perturbedAngles =
                     angles
@@ -52,17 +55,29 @@ namespace AAAGamesDivision
 
                 foreach (var jointAngle in angles)
                 {
+                    float funcValue = LossFunction(angles);
+
                     IKJointAngles oldAngles = perturbedAngles[jointAngle.Key];
                     Vector3 localGradient = Vector3.zero;
                     for (int i = 0; i < 3; ++i)
                     {
-                        IKJointAngles newAngles = oldAngles;
-                        newAngles[i] += ikParams.GradientDeltaStep;
-                        perturbedAngles[jointAngle.Key] = newAngles;
+                        foreach (float samplingStep in gradientSamplingSteps)
+                        {
+                            IKJointAngles newAngles = oldAngles;
+                            newAngles[i] += samplingStep;
+                            perturbedAngles[jointAngle.Key] = newAngles;
+                            localGradient[i] +=
+                                (LossFunction(perturbedAngles) - funcValue)
+                                / ikParams.GradientDeltaStep;
 
-                        float funcValue = LossFunction(angles);
-                        float funcValuePerturbed = LossFunction(perturbedAngles);
-                        localGradient[i] = (funcValuePerturbed - funcValue) / ikParams.GradientDeltaStep;
+                            newAngles = oldAngles;
+                            newAngles[i] -= samplingStep;
+                            perturbedAngles[jointAngle.Key] = newAngles;
+                            localGradient[i] +=
+                                (funcValue - LossFunction(perturbedAngles))
+                                / ikParams.GradientDeltaStep;
+                        }
+                        localGradient[i] /= gradientSamplingSteps.Length * 2;
 
                         perturbedAngles[jointAngle.Key] = oldAngles;
                     }
@@ -89,6 +104,14 @@ namespace AAAGamesDivision
                         }
                     );
 
+                float[] gradientSamplingSteps = new float[] {
+                    ikParams.GradientDeltaStep,
+                    ikParams.GradientDeltaStep / 2f,
+                    ikParams.GradientDeltaStep / 4f,
+                    ikParams.GradientDeltaStep / 6f,
+                    ikParams.GradientDeltaStep / 10f
+                };
+
                 while (isSolverRunning)
                 {
                     float targetDistance = DistanceToTarget(angles);
@@ -108,7 +131,7 @@ namespace AAAGamesDivision
                     );
                     //Debug.Log($"learningRate = {learningRate:F3}; targetDistance = {targetDistance:F3}");
 
-                    var gradient = LossGradient(angles);
+                    var gradient = LossGradient(angles, gradientSamplingSteps);
 
                     angles =
                         angles

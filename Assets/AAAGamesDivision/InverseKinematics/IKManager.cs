@@ -18,7 +18,7 @@ namespace AAAGamesDivision
             public float minTargetDistance = 0.01f;
             public float maxTargetDistance = 0.1f;
 
-            public int maxIterationsPerFrame = 20;
+            public int maxIterationsPerFrame = 5;
 
             public float regularization = 0.8f;
 

@@ -338,7 +338,7 @@ MonoBehaviour:
   maxLearningRate: 5
   minTargetDistance: 0.01
   maxTargetDistance: 0.1
-  maxIterationsPerFrame: 20
+  maxIterationsPerFrame: 5
   regularization: 0.8
 --- !u!114 &285326462
 MonoBehaviour:
@@ -650,7 +650,7 @@ MonoBehaviour:
   maxLearningRate: 5
   minTargetDistance: 0.01
   maxTargetDistance: 0.1
-  maxIterationsPerFrame: 20
+  maxIterationsPerFrame: 5
   regularization: 0.8
 --- !u!114 &666443839
 MonoBehaviour:
