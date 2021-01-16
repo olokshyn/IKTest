@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -6,34 +7,47 @@ namespace AAAGamesDivision
 {
     namespace InverseKinematics
     {
-
         public class IKJoint : MonoBehaviour
         {
-            public Vector3 arm;
-            public bool xRotation = true;
-            public bool yRotation = true;
-            public bool zRotation = true;
-            public Vector3 restAngles = new Vector3(0f, 0f, 0f);
-            public Vector3 minAngles = new Vector3(-90f, -90f, -90f);
-            public Vector3 maxAngles = new Vector3(90f, 90f, 90f);
+            [SerializeField]
+            private Vector3 arm;
+
+            [SerializeField]
+            private IKJointAngles angles;
 
             public IKJointAngles Angles
             {
-                get =>
-                    new IKJointAngles(
-                        new IKRotationAxes(xRotation, yRotation, zRotation),
-                        restAngles,
-                        minAngles,
-                        maxAngles
-                    );
+                // IKJointAngles is a struct so it's returned by value
+                get => angles;
                 set
                 {
                     transform.localEulerAngles = value.Angles;
+                    angles = value;
                 }
             }
 
+            public Vector3 Arm => arm;
+
             void Reset()
             {
+                Vector3 localRotation = transform.localEulerAngles;
+                for (int i = 0; i < 3; ++i)
+                {
+                    localRotation[i] = Mathf.Round(
+                        Mathf.DeltaAngle(0, localRotation[i])
+                    );
+                }
+                angles = new IKJointAngles(
+                    rotationAxes: new IKRotationAxes(
+                        xRotation: true,
+                        yRotation: true,
+                        zRotation: true
+                    ),
+                    restAngles: localRotation,
+                    minAngles: localRotation - 90f * Vector3.one,
+                    maxAngles: localRotation + 90f * Vector3.one
+                );
+
                 IKJoint[] joints = GetComponentsInChildren<IKJoint>();
                 if (joints.Length >= 2)
                 {

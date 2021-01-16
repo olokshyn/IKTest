@@ -10,8 +10,7 @@ namespace AAAGamesDivision
     {
         public class IKManager : MonoBehaviour
         {
-            public IKJoint[] joints;
-            public Transform ikTarget;
+            public IKEffectorInfo[] effectors;
 
             public float deltaStep = 0.1f;
             public float minLearningRate = 0.1f;
@@ -27,10 +26,9 @@ namespace AAAGamesDivision
 
             void Reset()
             {
-                joints = GetComponentsInChildren(typeof(IKJoint))
-                    .Select(x => (IKJoint)x)
+                effectors = GetComponentsInChildren(typeof(IKEndEffector))
+                    .Select(x => new IKEffectorInfo((IKEndEffector)x))
                     .ToArray();
-                ikTarget = GameObject.Find("Controller").transform;
             }
 
             void Start()
@@ -44,7 +42,7 @@ namespace AAAGamesDivision
                     maxTargetDistance: maxTargetDistance,
                     maxIterationsPerFrame: maxIterationsPerFrame
                 );
-                solver = new IKSolver(joints, ikTarget, ikParams);
+                solver = new IKSolver(effectors, ikParams);
                 StartCoroutine(solver.StartSolver());
             }
         }

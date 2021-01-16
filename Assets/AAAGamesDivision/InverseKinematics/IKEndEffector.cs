@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace AAAGamesDivision
@@ -9,6 +10,11 @@ namespace AAAGamesDivision
 
         public class IKEndEffector : MonoBehaviour
         {
+            public IKJoint[] Joints =>
+                GetComponentsInParent(typeof(IKJoint))
+                    .Reverse()
+                    .Select(x => (IKJoint)x)
+                    .ToArray();
         }
     }
 }

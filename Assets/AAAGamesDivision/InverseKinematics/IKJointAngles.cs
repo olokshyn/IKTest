@@ -7,12 +7,21 @@ namespace AAAGamesDivision
 {
     namespace InverseKinematics
     {
+        [Serializable]
         public struct IKJointAngles
         {
             private Vector3 angles;
+
+            [SerializeField]
             private IKRotationAxes rotationAxes;
+
+            [SerializeField]
             private Vector3 restAngles;
+
+            [SerializeField]
             private Vector3 minAngles;
+
+            [SerializeField]
             private Vector3 maxAngles;
 
             public IKJointAngles(
@@ -73,6 +82,7 @@ namespace AAAGamesDivision
             public float this[int i]
             {
                 get => angles[i];
+                // allow setting out-of-bounds values for perturbation in GD
                 set => angles[i] = value;
             }
 

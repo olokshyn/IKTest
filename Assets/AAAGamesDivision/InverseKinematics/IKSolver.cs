@@ -9,65 +9,64 @@ namespace AAAGamesDivision
     {
         public class IKSolver
         {
-            private IKJoint[] joints;
-            private Transform ikTarget;
+            private IKEffectorInfo[] effectors;
             private IKSolverParams ikParams;
-
             private bool isSolverRunning = false;
 
-            public IKSolver(
-                IKJoint[] joints,
-                Transform ikTarget,
-                IKSolverParams ikParams
-            )
+            public IKSolver(IKEffectorInfo[] effectors, IKSolverParams ikParams)
             {
-                this.joints = joints;
-                this.ikTarget = ikTarget;
+                this.effectors = effectors;
                 this.ikParams = ikParams;
             }
 
-            private Vector3 ForwardKinematics(IKJointAngles[] angles)
+            private float DistanceToTarget(Dictionary<string, IKJointAngles> angles)
             {
-                Quaternion rotation = joints[0].transform.rotation;
-                Vector3 position = joints[0].transform.position;
-                for (int i = 0; i < angles.Length; ++i)
-                {
-                    rotation *= Quaternion.Euler(angles[i].Angles);
-                    position += rotation * joints[i].arm;
-                }
-                return position;
+                return
+                    effectors
+                    .Select(effector => effector.DistanceToTarget(angles))
+                    .Sum();
             }
 
-            private float DistanceToTarget(IKJointAngles[] angles)
-            {
-                return (ikTarget.position - ForwardKinematics(angles)).magnitude;
-            }
-
-            private float LossFunction(IKJointAngles[] angles)
+            private float LossFunction(Dictionary<string, IKJointAngles> angles)
             {
                 float distanceToTarget = DistanceToTarget(angles);
-                float tension = angles.Select(x => x.Tension).Sum();
+                float tension =
+                    angles
+                    .Values
+                    .Select(angle => angle.Tension)
+                    .Sum();
                 float loss = distanceToTarget + ikParams.Regularization * tension;
                 //Debug.Log($"loss = {loss:F3}; distance = {distanceToTarget:F3}; tension = {tension:F3}");
                 return loss;
             }
 
-            private Vector3[] LossGradient(IKJointAngles[] angles)
+            private Dictionary<string, Vector3>
+                LossGradient(Dictionary<string, IKJointAngles> angles)
             {
-                Vector3[] gradient = new Vector3[angles.Length];
-                IKJointAngles[] deltaAngles = new IKJointAngles[angles.Length];
-                for (int i = 0; i < angles.Length; ++i)
+                Dictionary<string, IKJointAngles> perturbedAngles =
+                    angles
+                    .ToDictionary(entry => entry.Key, entry => entry.Value);
+                Dictionary<string, Vector3> gradient =
+                    angles
+                    .ToDictionary(entry => entry.Key, entry => Vector3.zero);
+
+                foreach (var jointAngle in angles)
                 {
-                    for (int j = 0; j < 3; ++j)
+                    IKJointAngles oldAngles = perturbedAngles[jointAngle.Key];
+                    Vector3 localGradient = Vector3.zero;
+                    for (int i = 0; i < 3; ++i)
                     {
-                        angles.CopyTo(deltaAngles, 0);
-                        deltaAngles[i][j] += ikParams.GradientDeltaStep;
+                        IKJointAngles newAngles = oldAngles;
+                        newAngles[i] += ikParams.GradientDeltaStep;
+                        perturbedAngles[jointAngle.Key] = newAngles;
 
-                        float fx = LossFunction(angles);
-                        float fdx = LossFunction(deltaAngles);
+                        float funcValue = LossFunction(angles);
+                        float funcValuePerturbed = LossFunction(perturbedAngles);
+                        localGradient[i] = (funcValuePerturbed - funcValue) / ikParams.GradientDeltaStep;
 
-                        gradient[i][j] = (fdx - fx) / ikParams.GradientDeltaStep;
+                        perturbedAngles[jointAngle.Key] = oldAngles;
                     }
+                    gradient[jointAngle.Key] = localGradient;
                 }
                 return gradient;
             }
@@ -77,7 +76,18 @@ namespace AAAGamesDivision
                 isSolverRunning = true;
                 int iterationsPerFrame = 0;
 
-                IKJointAngles[] angles = joints.Select(x => x.Angles).ToArray();
+                Dictionary<string, IKJointAngles> angles =
+                    effectors
+                    .SelectMany(effector => effector.Joints)
+                    .GroupBy(joint => joint.name)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => {
+                            var angles = group.First().Angles;
+                            angles.ToRest();
+                            return angles;
+                        }
+                    );
 
                 while (isSolverRunning)
                 {
@@ -85,17 +95,10 @@ namespace AAAGamesDivision
                     if (targetDistance < ikParams.MinTargetDistance)
                     {
                         iterationsPerFrame = 0;
-                        Debug.Log($"Target reached, distance = {targetDistance:F3}");
+                        //Debug.Log($"Target reached, distance = {targetDistance:F3}");
                         yield return null;
                         continue;
                     }
-
-                    Vector3[] gradient = LossGradient(angles);
-                    float gradientMagnitude = Mathf.Sqrt(
-                        gradient
-                            .Select(x => x.sqrMagnitude)
-                            .Sum()
-                    );
 
                     float learningRate = Mathf.Lerp(
                         ikParams.MinLearningRate,
@@ -103,23 +106,31 @@ namespace AAAGamesDivision
                         (targetDistance - ikParams.MinTargetDistance)
                         / (ikParams.MaxTargetDistance - ikParams.MinTargetDistance)
                     );
-                    Debug.Log($"learningRate = {learningRate:F3}; targetDistance = {targetDistance:F3}");
+                    //Debug.Log($"learningRate = {learningRate:F3}; targetDistance = {targetDistance:F3}");
 
-                    for (int i = 0; i < angles.Length; ++i)
-                    {
-                        for (int j = 0; j < 3; ++j)
-                        {
-                            angles[i][j] -= learningRate * gradient[i][j];
-                            angles[i].AdjustToConstraints();
-                        }
-                    }
+                    var gradient = LossGradient(angles);
+
+                    angles =
+                        angles
+                        .ToDictionary(
+                            item => item.Key,
+                            item =>
+                            {
+                                IKJointAngles updatedAngles = item.Value;
+                                updatedAngles.Angles -= learningRate * gradient[item.Key];
+                                return updatedAngles;
+                            }
+                        );
 
                     if (iterationsPerFrame == ikParams.MaxIterationsPerFrame)
                     {
                         iterationsPerFrame = 0;
-                        for (int i = 0; i < joints.Length; ++i)
+                        foreach (var effector in effectors)
                         {
-                            joints[i].Angles = angles[i];
+                            foreach (var joint in effector.Joints)
+                            {
+                                joint.Angles = angles[joint.name];
+                            }
                         }
                         yield return null;
                         continue;

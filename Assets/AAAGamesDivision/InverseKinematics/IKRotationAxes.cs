@@ -4,6 +4,7 @@ namespace AAAGamesDivision
 {
     namespace InverseKinematics
     {
+        [Serializable]
         public struct IKRotationAxes
         {
             public bool XRotation;
